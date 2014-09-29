@@ -1,0 +1,113 @@
+grammar org.xtext.heapexplorer.HeapExplorer with org.eclipse.xtext.common.Terminals
+
+generate heapExplorer "http://www.xtext.org/heapexplorer/HeapExplorer"
+
+HeapExplorer:
+	globalProperties+=GlobalProperty* 
+	("types" types+=Type+)? 
+	("data" data+=EntityData+)?
+	components+=ComponentType+
+	instances+=Instance+ 
+;
+
+Instance:
+	"instances-for" name=[ComponentType] "have-id" '=' names=Atomic
+;
+
+ComponentType:
+	"component-type" name=ID ':' properties+=ComponentProperty*
+;
+	
+GlobalProperty:
+	name=ID '=' value=Expression
+;
+
+
+Type:
+//	BaseType |
+	name=ID '=' definition=(TableType|StructType)
+;
+
+TableType returns Type:
+	{TableType} op='table-of' base_type=([Type])
+;
+
+StructType returns Type:
+	{StructType} op='struct' '{' fields+=Field+ '}'
+;
+
+Field:
+	name=ID '(' field_type=([Type]) ')'
+;
+
+BaseType returns Type:
+//	{BaseType} name='int' |
+	{BaseType} name=ID
+;
+
+EntityData:
+	name=ID '=' type=[Type]
+;
+
+ComponentProperty :
+	//name=ID op='=' expression=Expression
+	property=[EntityData] op='=' expression=Expression
+;
+
+
+Expression:
+    BooleanExpression;
+
+BooleanExpression returns Expression:
+    Comparison 
+    (({AndOrExpression.left=current} op=("||"|"&&")) right=Comparison)*;
+
+Comparison returns Expression:
+       Equals
+       (({Comparison.left=current} op=("<"|">"|">="|"<="|"belongs-to") ) right=Equals)*;
+
+Equals returns Expression:
+       Addition 
+       (({Equals.left=current} op=("==") ) right=Addition)*;
+ 
+Addition returns Expression:
+    Multiplication
+    (({Plus.left=current} op='+' | {Minus.left=current} op='-')
+        right=Multiplication)*; 
+
+Multiplication returns Expression:
+    Prefixed (({MultiOrDiv.left=current} op=("*"|"/")) right=Prefixed)*;
+
+Prefixed returns Expression:
+    {BooleanNegation} =>op="!" expression=Atomic | /* right associativity */
+    {ArithmeticSigned} =>op="-" expression=Atomic | /* right associativity */ 
+    {Atomic} atomic=Atomic ('.' member+=MemberCall)?
+;
+
+MemberCall:
+	{MemberCall} name=ID (op='()')? ('.' member+=MemberCall)?
+;
+
+//FieldRef:
+//	{FieldRef} name=ID ('.' field+=FieldRef)?
+//;
+//    
+// MethodCall returns Expression:
+// 	{MethodCall} name=ID '()' ('.' method+=MethodCall)?
+// ;
+
+Atomic returns Expression:
+    {GroupExpression} '(' group=Expression ')' |
+    {NumberLiteral} value=INT |
+    {StringLiteral} value=STRING | 
+    {BooleanLiteral} value=('true'|'false') |
+    {Varr} name=ID |
+    {CollectionLiteral} "#[" expressions+=Expression (',' expressions+=Expression)* ']' |
+    {StructLiteral} 'struct' struct_type=[Type] '{' expressions+=Expression (',' expressions+=Expression)* '}' |
+    {LambdaExpression} "[" assignaments+=Assignament* "]"
+   //  | {VariableReference} ref=[Variable]
+;
+
+Assignament:
+	name=ID '=' expression=Expression
+;
