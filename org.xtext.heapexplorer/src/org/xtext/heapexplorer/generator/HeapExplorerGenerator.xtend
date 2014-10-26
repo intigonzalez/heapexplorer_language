@@ -26,6 +26,11 @@ import org.xtext.heapexplorer.heapExplorer.Instance
 import org.xtext.heapexplorer.types.CollectionType
 import org.xtext.heapexplorer.types.ComposedType
 import org.xtext.heapexplorer.types.HeapExplorerType
+import org.osgi.framework.FrameworkUtil
+import org.eclipse.core.runtime.FileLocator
+import org.eclipse.core.runtime.Path
+import java.util.HashMap
+import org.eclipse.core.resources.IResource
 
 /**
  * Generates code from your model files on save.
@@ -34,13 +39,11 @@ import org.xtext.heapexplorer.types.HeapExplorerType
  */
 class HeapExplorerGenerator implements IGenerator {
 	
-	
 	@Inject extension CachedExpressionsTypeProvider
 	@Inject extension ConstantValueExpressionProvider
 	@Inject extension ExtensionExpressionCompilationProvider
 	
 	private static final Logger log = Logger.getLogger(typeof(HeapExplorerGenerator))
-	
 	
 	override void doGenerate(Resource resource, IFileSystemAccess fsa) {
 		
@@ -49,12 +52,14 @@ class HeapExplorerGenerator implements IGenerator {
 		val codeFile = analyisName + '.c'
 		val javaFile = analyisName + '.java'
 		
+		if (!analyisName.contains("simple")) return;
 		// c code
 		fsa.generateFile(analyisName +'/' + headerFile, resource.header(analyisName))
 		fsa.generateFile(analyisName +'/' + codeFile, resource.code(headerFile))
 		
 		// Java Code
 		fsa.generateFile(analyisName +'/' + javaFile, resource.javaCode(analyisName))
+		
 	}
 	
 	def analysisName(Resource resource) {

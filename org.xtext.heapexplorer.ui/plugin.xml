@@ -3,6 +3,41 @@
 
 <plugin>
 
+	<extension point="org.eclipse.ui.commands">
+		<command
+      	id="org.xtext.heapexplorer.ui.SwitchHeapExplorerNature" name="Heap Explorer Nature">
+		<state
+         class="org.eclipse.ui.handlers.RegistryToggleState:false"
+         id="org.eclipse.ui.commands.toggleState">
+   		</state> 
+		</command>
+	</extension>
+
+	<extension point="org.eclipse.ui.menus">
+		<menuContribution locationURI="popup:org.eclipse.jdt.ui.PackageExplorer">
+			<command commandId="org.xtext.heapexplorer.ui.SwitchHeapExplorerNature"
+			style="toggle">
+			</command>
+		</menuContribution>
+	</extension>
+	<extension point="org.eclipse.ui.handlers">
+	    <handler
+            class="org.xtext.heapexplorer.ui.SwitchOnHeapExplorerNature"
+            commandId="org.xtext.heapexplorer.ui.SwitchHeapExplorerNature">
+            <activeWhen>
+               <with
+                     variable="activeMenuSelection">
+                  <iterate
+                        ifEmpty="false"
+                        operator="or">
+                     <adapt
+                           type="org.eclipse.jdt.core.IJavaProject">
+                     </adapt>
+                  </iterate>
+               </with>
+            </activeWhen>
+        </handler>
+    </extension> 
     <extension
             point="org.eclipse.ui.editors">
         <editor

@@ -16,4 +16,5 @@ public class HeapExplorerRuntimeModule extends org.xtext.heapexplorer.AbstractHe
 //	public Class<? extends IGlobalScopeProvider> bindIGlobalScopeProvider() {
 //		return DefaultGlobalScopeProvider.class;
 //	}
+	
 }

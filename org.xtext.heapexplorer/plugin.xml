@@ -10,7 +10,25 @@
        genModel = "model/generated/HeapExplorer.genmodel" /> 
 	
   </extension>
-
-
-
+  
+  <extension
+      id="copycoresources" name="Copy heap explorer's core sources" point="org.eclipse.core.resources.builders">
+      <builder>
+         <run class="org.xtext.heapexplorer.natures.CopyCoreSources">
+            <parameter name="optimize" value="true" />
+            <parameter name="comment" value="Builder comment" />
+         </run>
+      </builder>
+   </extension>
+  
+  <extension
+      point="org.eclipse.core.resources.natures"
+      id="HeapExplorerNature"
+      name="HeapExplorer Nature">
+      <runtime>
+         <run class="org.xtext.heapexplorer.natures.HeapExplorerNature">
+         </run>
+      </runtime>
+   </extension>
+  
 </plugin>
