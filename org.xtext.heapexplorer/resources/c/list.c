@@ -23,6 +23,7 @@ create_list()
 	node->data = NULL;
 	node->next = NULL;
 	l->head = node;
+	return l;
 }
 
 void

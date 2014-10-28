@@ -20,6 +20,16 @@
          </run>
       </builder>
    </extension>
+   
+   <extension
+      id="compileAnalysis" name="Build Heap Explorer's Analysis" point="org.eclipse.core.resources.builders">
+      <builder>
+         <run class="org.xtext.heapexplorer.natures.CompileHeapAnalysis">
+            <parameter name="optimize" value="true" />
+            <parameter name="comment" value="Builder comment" />
+         </run>
+      </builder>
+   </extension>
   
   <extension
       point="org.eclipse.core.resources.natures"

@@ -16,9 +16,8 @@
 
 #define OBJECT_COMUNALITY \
 EntityID membership; \
-int _size; \
-struct LocalClass* clazz; \
-int (*size)();
+int size; \
+struct LocalClass* clazz;
 
 typedef int EntityID;
 typedef int ReferenceKind;

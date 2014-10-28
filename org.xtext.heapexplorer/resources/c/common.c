@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include "common.h"
-#include "list.h"
 
 
 LocalObject*

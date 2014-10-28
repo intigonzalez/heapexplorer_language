@@ -429,5 +429,43 @@
             extensions="he">
     </provider>
   </extension>
+  <extension
+        point="org.eclipse.debug.ui.launchShortcuts">
+     <shortcut
+           class="org.xtext.heapexplorer.ui.launchers.RunAnalysisLauncherShortcut"
+           description="Launch a JVM to execute a given class with Heap Exploration enabled"
+           id="org.xtext.heapexplorer.ui.RunAnalysis"
+           label="Heap Explorer&apos;s analysis"
+           modes="run">
+           <contextualLaunch>
+	         <enablement >
+	           <with variable="selection">
+	           <count value="1"/>
+	           <iterate>
+	           	<adapt type="org.eclipse.core.resources.IResource">
+	                <and>
+	                	<test property="org.eclipse.core.resources.name" value="*.he"/>
+	            	</and>
+	        	</adapt>
+	           </iterate>
+	           </with>
+	       	 </enablement>
+     	   </contextualLaunch>
+     	   
+     </shortcut>
+  </extension>
+  
+ <extension point="org.eclipse.ui.commands">
+    <command id="org.xtext.heapexplorer.ui.RunAnalysis.run"
+             categoryId="org.eclipse.debug.ui.category.run"
+             name="Heap Explorer&apos;s analysis"
+             description="Heap Explorer&apos;s analysis"/>
+ </extension>
+  
+  <extension point="org.eclipse.ui.bindings">
+		<key sequence="Ctrl+R A"
+			commandId="org.xtext.heapexplorer.ui.RunAnalysis.run"
+			schemeId="org.eclipse.ui.defaultAcceleratorConfiguration"/>
+	</extension>
 
 </plugin>

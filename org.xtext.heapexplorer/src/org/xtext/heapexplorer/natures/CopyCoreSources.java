@@ -43,7 +43,6 @@ public class CopyCoreSources extends IncrementalProjectBuilder {
 			List<IClasspathEntry> l = new ArrayList<>(Arrays.asList(ijProject.getRawClasspath()));
 			l.add(JavaCore.newSourceEntry(ijProject.getPath().append("src-gen")));
 			ijProject.setRawClasspath(l.toArray(new IClasspathEntry[l.size()]), monitor);
-			
 		}
 		folder = folder.getFolder("core");
 		if (!folder.exists()) {

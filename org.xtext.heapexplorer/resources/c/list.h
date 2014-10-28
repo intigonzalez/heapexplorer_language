@@ -2,6 +2,7 @@
 #define __LINKED_LIST__
 
 #include <stdbool.h>
+#include <stdio.h>
 
 struct list_node;
 
