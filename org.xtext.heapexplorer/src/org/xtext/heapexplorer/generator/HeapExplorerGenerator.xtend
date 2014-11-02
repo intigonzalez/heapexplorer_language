@@ -31,6 +31,7 @@ import org.eclipse.core.runtime.FileLocator
 import org.eclipse.core.runtime.Path
 import java.util.HashMap
 import org.eclipse.core.resources.IResource
+import java.util.List
 
 /**
  * Generates code from your model files on save.
@@ -42,8 +43,11 @@ class HeapExplorerGenerator implements IGenerator {
 	@Inject extension CachedExpressionsTypeProvider
 	@Inject extension ConstantValueExpressionProvider
 	@Inject extension ExtensionExpressionCompilationProvider
+	@Inject extension ResultsToJavaGenerator
 	
 	private static final Logger log = Logger.getLogger(typeof(HeapExplorerGenerator))
+	
+	var List<EntityData> features = null
 	
 	override void doGenerate(Resource resource, IFileSystemAccess fsa) {
 		
@@ -52,14 +56,18 @@ class HeapExplorerGenerator implements IGenerator {
 		val codeFile = analyisName + '.c'
 		val javaFile = analyisName + '.java'
 		
+		features = resource.allContents.filter(typeof(EntityData)).filter[
+				it.name!="membership" && it.name!="on_inclusion" && it.name!="root_objects"
+				].toList
+		
 		if (!analyisName.contains("simple")) return;
-		// c code
-		fsa.generateFile(analyisName +'/' + headerFile, resource.header(analyisName))
-		fsa.generateFile(analyisName +'/' + codeFile, resource.code(headerFile))
 		
 		// Java Code
 		fsa.generateFile(analyisName +'/' + javaFile, resource.javaCode(analyisName))
 		
+		// c code
+		fsa.generateFile(analyisName +'/' + headerFile, resource.header(analyisName))
+		fsa.generateFile(analyisName +'/' + codeFile, resource.code(analyisName))
 	}
 	
 	def analysisName(Resource resource) {
@@ -82,39 +90,48 @@ class HeapExplorerGenerator implements IGenerator {
 	
 	def CharSequence javaCode(Resource resource, String className)'''
 		package «className»;
+		import java.util.*;
 		public class «className» {
-			«FOR t: resource.allContents.filter(typeof(Type)).filter[t|t.name!= null && !(t instanceof BaseType)].toIterable»
-			// type definition for «t.name»
-			«t.getJavaRepresentation»
-			«ENDFOR»
 			
 			// fields
-			«FOR d : resource.allContents.filter(typeof(EntityData)).filter[
-				it.name!="membership" && it.name!="on_inclusion" && it.name!="root_objects"
-				].toIterable»
-				«d.type.type.declare_var» «d.name»«IF d.type.type instanceof CollectionType» = new ArrayList<«d.type.type.name»>()«ENDIF»;
+			«FOR d : features»
+				public «d.type.type.java_declare_var» «d.name»;
 			«ENDFOR»
-		}
-		'''
-	
-	def String getJavaRepresentation(Type type) {
-		val heType = type.type
-		switch(heType) {
-			ComposedType:'''class «heType.name»{
-				«FOR f: (heType as ComposedType).fields»
-					«f.value.declare_var» «f.key»«IF f.value instanceof CollectionType» = new ArrayList<«f.value.name»>()«ENDIF»;
+			
+			// constructor
+			public «className»(
+				«FOR d : features SEPARATOR ','»
+				«d.type.type.java_declare_var» «d.name»
 				«ENDFOR»
-			}'''
-			default:''''''
+			)
+			{
+				«FOR d : features»
+				this.«d.name» = «d.name»;
+				«ENDFOR»
+			}
 		}
-	}
-	
-	def declare_var(HeapExplorerType type) {
-		switch(type) {
-			CollectionType:'''List<«type.name»>'''
-			default:'''«type.name»'''
+		«FOR t: resource.allContents.filter(typeof(Type)).filter[t|t.name!= null && !(t instanceof BaseType)].toIterable»
+		«IF t.type instanceof ComposedType»
+		// type definition for «t.name»
+		class «t.type.name» {
+			«FOR f : (t.type as ComposedType).fields»
+			public «f.value.java_declare_var» «f.key»;
+			«ENDFOR»
+			// constructor
+			public «t.type.name»(
+				«FOR f : (t.type as ComposedType).fields SEPARATOR ','»
+				«f.value.java_declare_var» «f.key» 
+				«ENDFOR»
+			)
+			{
+				«FOR f: (t.type as ComposedType).fields»
+				this.«f.key» = «f.key»;
+				«ENDFOR»
+			}
 		}
-	}
+		«ENDIF»
+		«ENDFOR»
+		'''
 	
 	def CharSequence header(Resource resource, String f)'''
 		#ifndef __«f.toUpperCase»__
@@ -128,26 +145,33 @@ class HeapExplorerGenerator implements IGenerator {
 		
 		//this structure represents the data on each resource principal
 		typedef struct {
-		«FOR d : resource.allContents.filter(typeof(EntityData)).filter[
-			it.name!="membership" && it.name!="on_inclusion" && it.name!="root_objects"
-		].toIterable»
+		«FOR d : features»
 			«d.type.name» «d.name»;
 		«ENDFOR»
 		} «ConstantValuesForGeneration::PRINCIPAL_DATA»;
 		
+		#include<stdio.h>
+		#include<stdlib.h>
+		
 		#include "common.h"
 		#include "RuntimeObjects.h"
+		
+		#include "jni.h"
+		#include "jvmti.h"
 		
 		extern ResourcePrincipalType TYPES[];
 		
 		extern int nbTYPES;
 		
+		jobject localCreateResults
+			(jvmtiEnv* jvmti, JNIEnv * jniEnv, void* user_data);
+		
 		#endif
 		'''
 	
-	def CharSequence code(Resource resource, String headerFile)'''
+	def CharSequence code(Resource resource, String analysis_name)'''
 		#include "list.h"
-		#include "«headerFile»"
+		#include "«analysis_name».h"
 		
 		// methods to initialize properties
 		«FOR c : resource.allContents.filter(typeof(ComponentType)).toIterable BEFORE '\n'»
@@ -178,6 +202,18 @@ class HeapExplorerGenerator implements IGenerator {
 		void* instances_createResourcePrincipalData()
 		{
 			return calloc(sizeof(«ConstantValuesForGeneration::PRINCIPAL_DATA»), 1);
+		}
+		
+		«features.routine_to_create_main_result(analysis_name)»
+		
+		jobject localCreateResults
+		(jvmtiEnv* jvmti, JNIEnv * jniEnv, void* user_data)
+		{
+			InnerPrincipal* iPrinc = (InnerPrincipal*)user_data;
+			ResourcePrincipalData* data = (ResourcePrincipalData*)iPrinc->princ;
+			jobject finalResult = create_«analysis_name»_ResourcePrincipalData(jniEnv, data);
+					
+			return finalResult;
 		}
 		
 		// ResourcePrincipalTypes

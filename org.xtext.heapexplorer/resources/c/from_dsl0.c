@@ -57,7 +57,9 @@ jint JNICALL callback_all_alive_objects
 		int flag = iPrinc->type->member(&env, dPrinc);
 		if (flag) {
 			iPrinc->type->on_inclusion(&env, dPrinc);
-			fprintf(stderr, "blblb %d\n", (++loco));
+			if (loco % 1000 == 0)
+				fprintf(stderr, "blblb %d\n", (loco));
+			++loco;
 			if ((*tag_ptr) == 0)
 				*tag_ptr = tagForObject(princ);
 			else
@@ -125,5 +127,6 @@ int DECLARE_FUNCTION(HeapAnalyzerPlugin* r)
 	r->name = "from dsl0";
 	r->description = "This plugin calculates the number of objects of each class within the whole JVM. It returns only alive objects";
 	r->createPrincipals = createPrincipals;
+	r->createResults = localCreateResults;
 	return 0;
 }

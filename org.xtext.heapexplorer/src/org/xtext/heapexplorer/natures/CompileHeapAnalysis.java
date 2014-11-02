@@ -65,7 +65,11 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 
 		@Override
 		public boolean visit(IResourceDelta delta) throws CoreException {
-			String pathToStuff = "/home/inti/programs/heapAnalysisCore/src/main/c";
+			String pathToStuff = getProject().getPersistentProperty(HeapExplorerNature.KEY_PATH_HE);
+			if (pathToStuff == null) {
+				// error
+				return false;
+			}
 			IResource res = delta.getResource();
 			if (res.getName().equals("src-gen")) {
 				return false;

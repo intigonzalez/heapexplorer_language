@@ -34,6 +34,8 @@ import org.xtext.heapexplorer.validation.ExpressionsTypeProvider
 import org.apache.log4j.Logger
 import org.xtext.heapexplorer.heapExplorer.Instance
 import org.xtext.heapexplorer.heapExplorer.StringLiteral
+import org.xtext.heapexplorer.heapExplorer.CollectionLiteral
+import org.xtext.heapexplorer.heapExplorer.StructLiteral
 
 class ExtensionExpressionCompilationProvider {
 	
@@ -48,6 +50,8 @@ class ExtensionExpressionCompilationProvider {
 	private def String allocateTmp() {
 		'''tmp«count++»'''
 	}
+	
+	private def String lastAllocatedTmp () '''tmp«count-1»'''
 	
 		// types
 	def dispatch String c_representation(BaseType t) {
@@ -77,7 +81,7 @@ class ExtensionExpressionCompilationProvider {
 	
 	def dispatch String c_representation(TableType tt) 
 	//'''typedef «tt.base_type.name» * '''
-	'''List* '''
+	'''typedef List* '''
 	
 	def dispatch String c_representation(Type t) '''
 		«t.definition.c_representation» «t.name»; '''
@@ -124,6 +128,32 @@ class ExtensionExpressionCompilationProvider {
 		stack.push('''"«e.value»"''')
 		''
 	}
+	def dispatch String compile_to_c(StructLiteral e) {
+		val tmp = allocateTmp();
+		stack.push(tmp)
+		val type = e.type as ComposedType
+		val s0 = '''«type.c_declare_var» «tmp»;''' + '\n'
+		val builder = new StringBuilder
+		type.fields.forEach[f, idx|
+			builder.append(e.expressions.get(idx).compile_to_c)
+			val t = stack.pop
+			builder.append('''«tmp».«f.key» = «t»;''' + '\n')
+		]
+		s0 + builder.toString
+	}
+	def dispatch String compile_to_c(CollectionLiteral e) {
+		val tmp = allocateTmp()
+		stack.push(tmp)
+		val type = (e.type as CollectionType).baseType
+		'''List* «tmp» = create_list();«FOR sub : e.expressions»
+		«sub.compile_to_c»
+		«type.c_declare_var»* «allocateTmp» = («type.c_declare_var»*)malloc(sizeof(«type.c_declare_var»));
+		*«lastAllocatedTmp» = «stack.pop»;
+		add_to_list(«tmp»,«lastAllocatedTmp»);
+		«ENDFOR»
+		'''
+	}
+	
 	// variables
 	def dispatch String compile_to_c(Varr e) {
 		var s = '''princ->«e.name»'''
@@ -191,7 +221,7 @@ class ExtensionExpressionCompilationProvider {
 					val memberName = mc.name
 					val isMethod = ty.methods.exists[it.name == memberName]
 					if (!isMethod)
-						log.error("AQUI VIENE EL ERROR " + memberName)
+						log.error("AQUI VIENE EL ERROR " + memberName + " en " + e.eResource)
 					ty = mc.type(ty)
 					r += '''«ty.c_declare_var» «tmp» = «s0»->«mc.name»«IF isMethod»()«ENDIF»;
 					'''

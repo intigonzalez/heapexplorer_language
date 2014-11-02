@@ -6,15 +6,15 @@ import java.util.ArrayList
 class HeapExplorerType {
 	@Property
 	val String name
-	
+		
 	protected val List<HeapExplorerMethod>  _methods = new ArrayList
 	
-	new(String string) {
-		_name = string
+	new(String name) {
+		_name = name
 	}
 	
-	new(String string, List<HeapExplorerMethod> m) {
-		_name = string
+	new(String name, List<HeapExplorerMethod> m) {
+		_name = name
 		_methods.addAll(m)
 	}
 	
