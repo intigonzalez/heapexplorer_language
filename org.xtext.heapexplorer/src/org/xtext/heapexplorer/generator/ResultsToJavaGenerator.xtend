@@ -39,7 +39,7 @@ class ResultsToJavaGenerator {
 	def dispatch String routine_to_create_object(ComposedType t, String analysisName) {
 		if (routines.containsKey(t)) ''''''
 		else {
-			routines.put(t, '''create_«analysisName»_«t.name»''')
+			routines.put(t, '''create_«analysisName»_«t.c_declare_var»''')
 			magic(analysisName, t.java_declare_var.toString, t.c_declare_var, t.fields)
 		}
 	}
@@ -49,19 +49,51 @@ class ResultsToJavaGenerator {
 		«FOR st : fields SEPARATOR '\n'»
 		«IF st.value instanceof ComposedType»
 		«st.value.routine_to_create_object(analysisName)»
+		«ELSEIF st.value instanceof CollectionType»
+		«st.value.routine_to_create_object(analysisName)»
 		«ENDIF»
 		«ENDFOR»
+		
+		static jclass
+		resultClass_«javaTypeToCreate» = NULL;
+		static jmethodID
+		constructor_«javaTypeToCreate»;
+		
+		// routine to load java' classes in order to create type «javaTypeToCreate». It is a cache
+		static void
+		load_classes_«cTypeToCopy»(JNIEnv * jniEnv)
+		{
+			if (resultClass_«javaTypeToCreate» == NULL) {
+				char* signatureCnstr = "(«FOR d : fields»«d.value.jvmSpecType(analysisName)»«ENDFOR»)V";
+				// obtain class representing the whole result
+				resultClass_«javaTypeToCreate» = (*jniEnv)->FindClass(jniEnv, "«analysisName»/«javaTypeToCreate»");
+				if (resultClass_«javaTypeToCreate» == NULL) {
+					fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate» in %s%d\n",
+					__FILE__, __LINE__);
+					exit(1);
+				}
+				resultClass_«javaTypeToCreate» =(*jniEnv)->NewGlobalRef(jniEnv, resultClass_«javaTypeToCreate»);
+				constructor_«javaTypeToCreate» = (*jniEnv)->GetMethodID(jniEnv, resultClass_«javaTypeToCreate», "<init>", signatureCnstr);
+				if (constructor_«javaTypeToCreate» == NULL) {
+					fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate»::<init>(%s) in %s:%d\n",
+					signatureCnstr,
+					__FILE__, __LINE__
+					);
+					exit(1);
+				}
+			}
+		}
+		
 		// routine for creating «javaTypeToCreate»'s objects
 		static jobject
 		create_«analysisName»_«cTypeToCopy»(JNIEnv * jniEnv, «cTypeToCopy»* o)
 		{
 			jobject result = NULL;
-			jclass resultClass;
-			jmethodID constructor;
-			char* signatureCnstr = "(«FOR d : fields»«d.value.jvmSpecType(analysisName)»«ENDFOR»)V";
+			«IF fields.exists[it.value instanceof CollectionType]»
 			jclass clazzList;
 			jmethodID constructorArrayList;
 			jmethodID addArrayList;
+			«ENDIF»
 			«FOR st : fields.filter[it| 
 				it.value instanceof ComposedType || 
 				it.value instanceof CollectionType
@@ -69,11 +101,7 @@ class ResultsToJavaGenerator {
 			jobject «st.key» = NULL;
 			«ENDFOR»
 			
-			«FOR st : fields»
-			«IF st.value instanceof ComposedType»
-			«st.key» = create_«analysisName»_«st.value.name»(jniEnv, &o->«st.key»);
-			«ELSEIF st.value instanceof CollectionType»
-			
+			«IF fields.exists[it.value instanceof CollectionType]»
 			// obtain ArrayList class
 			clazzList = (*jniEnv)->FindClass(jniEnv, "java/util/ArrayList");
 			if (clazzList == NULL) {
@@ -90,6 +118,12 @@ class ResultsToJavaGenerator {
 				fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::add(Object) in localCreateResults\n");
 				exit(1);
 			}
+			«ENDIF»
+			
+			«FOR st : fields»
+			«IF st.value instanceof ComposedType»
+			«st.key» = create_«analysisName»_«st.value.name»(jniEnv, &o->«st.key»);
+			«ELSEIF st.value instanceof CollectionType»
 			«st.key» = (*jniEnv)->NewObject(jniEnv, clazzList, constructorArrayList);
 			void myaction_«st.key»(void* data, void* user_data) {
 				jobject el = «routines.get((st.value as CollectionType).baseType)»(jniEnv, («(st.value as CollectionType).baseType.c_declare_var»*) data);
@@ -98,22 +132,11 @@ class ResultsToJavaGenerator {
 			foreach(o->«st.key», myaction_«st.key», NULL);
 			«ENDIF»
 			«ENDFOR»
-			// obtain class representing the whole result
-			resultClass = (*jniEnv)->FindClass(jniEnv, "«analysisName»/«javaTypeToCreate»");
-			if (resultClass == NULL) {
-				fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate» in %s%d\n",
-				__FILE__, __LINE__);
-				exit(1);
-			}
-			constructor = (*jniEnv)->GetMethodID(jniEnv, resultClass, "<init>", signatureCnstr);
-			if (constructor == NULL) {
-				fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate»::<init>(%s) in %s:%d\n",
-				signatureCnstr,
-				__FILE__, __LINE__
-				);
-				exit(1);
-			}
-			result = (*jniEnv)->NewObject(jniEnv, resultClass, constructor,
+			
+			// load the classes
+			load_classes_«cTypeToCopy»(jniEnv);
+			
+			result = (*jniEnv)->NewObject(jniEnv, resultClass_«javaTypeToCreate», constructor_«javaTypeToCreate»,
 				«FOR st : fields SEPARATOR ','»
 				«IF st.value instanceof ComposedType || st.value instanceof CollectionType»
 				«st.key»

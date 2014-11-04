@@ -37,7 +37,7 @@ StructType returns Type:
 ;
 
 Field:
-	name=ID '(' field_type=([Type]) ')'
+	name=ID ':' field_type=([Type])
 ;
 
 BaseType returns Type:
