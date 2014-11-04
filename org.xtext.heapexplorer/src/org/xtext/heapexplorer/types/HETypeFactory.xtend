@@ -123,7 +123,6 @@ class HETypeFactory {
 		_classType
 	}
 	
-	
 	def static HeapExplorerType createLambdaAction(HeapExplorerType type) {
 		new LambdaFunctionType("action", voidType, #[type])
 	}
@@ -167,7 +166,6 @@ class HETypeFactory {
 	def static isCollectionOf(HeapExplorerType type, HeapExplorerType baseType) {
 		type.class == CollectionType && (type as CollectionType).baseType.equals(baseType)
 	}
-	
 	
 	def static HeapExplorerType commonAncestor(HeapExplorerType t0, HeapExplorerType t1) {
 		if (t0 instanceof ComposedType && t1 instanceof ComposedType) {

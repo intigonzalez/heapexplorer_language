@@ -104,14 +104,14 @@ class ExpressionsTypeProvider {
 				// maybe it is a local variable within a lambda expression
 				var c = exp.eContainer
 				while (c!= null && !(c instanceof LambdaExpression)) {
-					log.error("TYPE OF THING " + c.eClass.name)
+//					log.error("TYPE OF THING " + c.eClass.name)
 					c = c.eContainer
 				}
 				if (c != null) {
 					val l = c as LambdaExpression
 					if (l.lambdaParams != null && l.lambdaParams.exists[it.name == exp.name]) {
 						val tt = l.lambdaParams.findFirst[it.name == exp.name].type.type
-						log.error("TYPE FOUND " + tt.name)
+//						log.error("TYPE FOUND " + tt.name)
 						new PointerType(tt)
 					} else unknownType
 				}

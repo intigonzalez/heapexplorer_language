@@ -339,7 +339,24 @@ class ExtensionExpressionCompilationProvider {
 	// to obtain the value of members i.e. Point.p 
 	// =================================================================
 	def dispatch Pair<String, HeapExplorerType> c_get_Member(HeapExplorerType type, String source, MemberCall mc) {
-		throw new UnsupportedOperationException("TODO111: auto-generated method stub " + source + " " + mc.name + " " + type.class.name + " " + type.name)
+		if (type == HETypeFactory::intType) {
+			// assuming there is only one possible operation: toString
+			val tmp = allocateTmp
+			stack.push(tmp)
+			'''
+			char * «tmp» = (char*) malloc(sizeof(char)*10);
+			sprintf(«tmp», "%d", «source»);
+			'''->HETypeFactory::stringType
+		}
+		else if (type == HETypeFactory::stringType) {
+			// assuming there is only one possible operation: toInt
+			val tmp = allocateTmp
+			stack.push(tmp)
+			'''
+			int «tmp» = atoi(«source»);
+			'''->HETypeFactory::intType
+		}
+		else throw new UnsupportedOperationException("TODO111: auto-generated method stub " + source + " " + mc.name + " " + type.class.name + " " + type.name)
 	}
 	def dispatch Pair<String, HeapExplorerType> c_get_Member(PointerType type, String source, MemberCall mc) {
 		val tyTmp = mc.type(type.pointTo)

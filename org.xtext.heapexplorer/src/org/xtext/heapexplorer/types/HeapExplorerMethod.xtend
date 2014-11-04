@@ -30,14 +30,14 @@ class HeapExplorerMethod {
 	}
 	
 	def boolean areValidParametersForCall(List<HeapExplorerType> types) {
-		log.error("Expected " + parameters.size + " and found " + types.size)
+//		log.error("Expected " + parameters.size + " and found " + types.size)
 		if (types.size != parameters.size)
 			false
 		else {
 			var flags = true
 			var i = 0
 			while (i < types.size && flags) {
-				log.error("Expected " + parameters.get(i).name + " and found " + types.get(i).name)
+//				log.error("Expected " + parameters.get(i).name + " and found " + types.get(i).name)
 				flags = HETypeFactory::isAssignable(types.get(i), parameters.get(i))
 				i++;
 			}
