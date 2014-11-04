@@ -44,6 +44,40 @@ class ResultsToJavaGenerator {
 		}
 	}
 	
+	static def String routine_to_load_lists() {
+		'''
+		static jclass
+			clazzList = NULL;
+		static jmethodID
+			constructorArrayList;
+		static jmethodID
+			addArrayList;
+		
+		static void 
+		load_classes_hidden_ArrayList(JNIEnv * jniEnv)
+		{
+			if (clazzList == NULL) {
+				clazzList = (*jniEnv)->FindClass(jniEnv, "java/util/ArrayList");
+				if (clazzList == NULL) {
+					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList in localCreateResults\n");
+					exit(1);
+				}
+				clazzList =(*jniEnv)->NewGlobalRef(jniEnv, clazzList);
+				constructorArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "<init>", "()V");
+				if (constructorArrayList == NULL) {
+					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::<init> in localCreateResults\n");
+					exit(1);
+				}
+				addArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "add", "(Ljava/lang/Object;)Z");
+				if (addArrayList == NULL) {
+					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::add(Object) in localCreateResults\n");
+					exit(1);
+				}
+			}
+		}
+		'''
+	}
+	
 	def String magic(String analysisName, String javaTypeToCreate, String cTypeToCopy, List<Pair<String, HeapExplorerType>> fields) {
 		'''
 		«FOR st : fields SEPARATOR '\n'»
@@ -89,11 +123,6 @@ class ResultsToJavaGenerator {
 		create_«analysisName»_«cTypeToCopy»(JNIEnv * jniEnv, «cTypeToCopy»* o)
 		{
 			jobject result = NULL;
-			«IF fields.exists[it.value instanceof CollectionType]»
-			jclass clazzList;
-			jmethodID constructorArrayList;
-			jmethodID addArrayList;
-			«ENDIF»
 			«FOR st : fields.filter[it| 
 				it.value instanceof ComposedType || 
 				it.value instanceof CollectionType
@@ -103,21 +132,7 @@ class ResultsToJavaGenerator {
 			
 			«IF fields.exists[it.value instanceof CollectionType]»
 			// obtain ArrayList class
-			clazzList = (*jniEnv)->FindClass(jniEnv, "java/util/ArrayList");
-			if (clazzList == NULL) {
-				fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList in localCreateResults\n");
-				exit(1);
-			}
-			constructorArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "<init>", "()V");
-			if (constructorArrayList == NULL) {
-				fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::<init> in localCreateResults\n");
-				exit(1);
-			}
-			addArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "add", "(Ljava/lang/Object;)Z");
-			if (addArrayList == NULL) {
-				fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::add(Object) in localCreateResults\n");
-				exit(1);
-			}
+			load_classes_hidden_ArrayList(jniEnv);
 			«ENDIF»
 			
 			«FOR st : fields»
