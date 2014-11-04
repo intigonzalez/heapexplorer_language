@@ -36,6 +36,9 @@ import org.xtext.heapexplorer.heapExplorer.Instance
 import org.xtext.heapexplorer.heapExplorer.StringLiteral
 import org.xtext.heapexplorer.heapExplorer.CollectionLiteral
 import org.xtext.heapexplorer.heapExplorer.StructLiteral
+import java.util.HashMap
+import org.xtext.heapexplorer.types.PointerType
+import org.xtext.heapexplorer.types.LambdaFunctionType
 
 class ExtensionExpressionCompilationProvider {
 	
@@ -172,7 +175,7 @@ class ExtensionExpressionCompilationProvider {
 		val resultLocation = stack.pop
 		val tmp = allocateTmp()
 	 	val s1 = '''«e.expression.type.c_declare_var» «tmp» = -«resultLocation»;
-	 	''' // FIXME: it is not name but c_representation or something like that
+	 	'''
 	 	stack.push(tmp)
 	 	s0 + s1
 	}
@@ -208,29 +211,26 @@ class ExtensionExpressionCompilationProvider {
 	} 
 
 	def dispatch String compile_to_c(Atomic e) {
-		var r = e.atomic.compile_to_c()
+		val StringBuilder r = new StringBuilder(e.atomic.compile_to_c())
 		var HeapExplorerType ty = e.atomic.type
-		if (ty == HETypeFactory::voidType) r
+		if (ty == HETypeFactory::voidType || ((ty instanceof LambdaFunctionType) && (ty as LambdaFunctionType).returnType == HETypeFactory::voidType) ) r.toString
 		else {
+			if (stack.isEmpty)
+				log.error(" POR QUEEEEEEEEEEEEEEEEE " + e.atomic.eClass.name + "\n" + e.atomic.compile_to_c)
 			var s0 = stack.pop
-			if (e.member !=null && e.member.size > 0) {
+			if (e.member !=null && e?.member.size > 0) {
 				var MemberCall mc = e.member.get(0)
 				
 				while (mc != null) {
-					val tmp = allocateTmp()
-					val memberName = mc.name
-					val isMethod = ty.methods.exists[it.name == memberName]
-					if (!isMethod)
-						log.error("AQUI VIENE EL ERROR " + memberName + " en " + e.eResource)
-					ty = mc.type(ty)
-					r += '''«ty.c_declare_var» «tmp» = «s0»->«mc.name»«IF isMethod»()«ENDIF»;
-					'''
-					s0 = tmp
+					val info = ty.c_get_Member(s0, mc)
+					r.append(info.key)
+					ty = info.value
+					s0 = stack.pop
 					mc = if (mc.member == null || mc.member.size == 0) null else mc.member.get(0)
 				}
 			}
 			stack.push(s0)
-			r
+			r.toString
 		}
 	}
 	
@@ -296,14 +296,27 @@ class ExtensionExpressionCompilationProvider {
 	«FOR a:e.assignaments»
 	«a.compile_to_c()»
 	«ENDFOR»
+	«IF e.returnValue != null»
+	«e.returnValue.compile_to_c»
+	«ENDIF»
 	'''
 	
 	def dispatch String compile_to_c(Assignament a) {
-		val s0 = a.expression.compile_to_c()
-		val l = stack.pop
-		val s1 = '''princ->«a.name» = «l»;
-		'''
-		s0 + s1
+		val tyAss = a.type
+		if (tyAss instanceof PointerType) {
+			val s0 = a.expression.compile_to_c()
+			val l = stack.pop
+			val s1 = '''*«a.name» = «l»;
+			'''
+			s0 + s1
+		}
+		else {
+			val s0 = a.expression.compile_to_c()
+			val l = stack.pop
+			val s1 = '''princ->«a.name» = «l»;
+			'''
+			s0 + s1
+		}
 	}
 	
 	def dispatch String compile_to_c(Instance ins) {
@@ -322,4 +335,129 @@ class ExtensionExpressionCompilationProvider {
 		s1
 	}
 	
+	// =================================================================
+	// to obtain the value of members i.e. Point.p 
+	// =================================================================
+	def dispatch Pair<String, HeapExplorerType> c_get_Member(HeapExplorerType type, String source, MemberCall mc) {
+		throw new UnsupportedOperationException("TODO111: auto-generated method stub " + source + " " + mc.name + " " + type.class.name + " " + type.name)
+	}
+	def dispatch Pair<String, HeapExplorerType> c_get_Member(PointerType type, String source, MemberCall mc) {
+		val tyTmp = mc.type(type.pointTo)
+		val isMethod = type.methods.exists[it.name == mc.name]
+		val tmp = allocateTmp
+		stack.push(tmp)
+		'''
+		«tyTmp.c_declare_var» «tmp» = «source»->«mc.name»«IF isMethod»()«ENDIF»;
+		'''->tyTmp
+	}
+	def dispatch Pair<String, HeapExplorerType> c_get_Member(ComposedType type, String source, MemberCall mc) {
+		val tyTmp = mc.type(type)
+		val isMethod = type.methods.exists[it.name == mc.name]
+		val isBuiltIn = HETypeFactory.builtInTypes.exists[it == type]
+		val tmp = allocateTmp
+		stack.push(tmp)
+		'''
+		«tyTmp.c_declare_var» «tmp» = «source»«IF isBuiltIn»->«ELSE».«ENDIF»«mc.name»«IF isMethod»()«ENDIF»;
+		'''->tyTmp
+	}
+	def dispatch Pair<String, HeapExplorerType> c_get_Member(CollectionType type, String source, MemberCall mc) {
+		if (mc.name == 'append') {
+			// generate parameter
+			val s0 = 
+			'''
+			«mc.parameters.get(0).compile_to_c»
+			'''
+			// get the l-value that contains the parameter value
+			val tmpSrc = stack.pop
+			val tmpDst = allocateTmp
+			stack.push(tmpDst)
+			s0 + '''
+			List* «tmpDst» = append(«source», «tmpSrc»);
+			'''->type
+		}
+		else if (mc.name == 'findfirst') {
+			
+			val tmp = allocateTmp
+			val tmpR = allocateTmp
+			val tmpr0 = allocateTmp
+			stack.push(tmpR)
+			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
+			val rTy = type.methods.findFirst[it.name == mc.name].returnType
+			'''
+			bool «tmp»(void* data, void* user_data) {
+				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+				«lambda.compile_to_c»
+				return «stack.pop»;
+			}
+			«rTy.c_declare_var»* «tmpr0» = «mc.name»(«source», «tmp», NULL);
+			if («tmpr0» == NULL) {
+				«rTy.c_declare_var» v;
+				«tmpr0» = &v;
+				memset(«tmpr0», 0, sizeof(«rTy.c_declare_var»));
+			}
+			«rTy.c_declare_var» «tmpR» = *«tmpr0»;
+			'''->rTy
+		}
+		else if (mc.name == 'foreach') {
+			val tmp = allocateTmp
+			stack.push("nothing")
+			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
+			'''
+			void «tmp»(void* data, void* user_data) {
+				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+				«lambda.compile_to_c»
+			}
+			foreach(«source», «tmp», NULL);
+			'''->HETypeFactory::voidType
+		} 
+		else if (mc.name == 'filter') {
+			val tmp = allocateTmp
+			val tmpR = allocateTmp
+			stack.push(tmpR)
+			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
+			'''
+			bool «tmp»(void* data, void* user_data) {
+				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+				«lambda.compile_to_c»
+				return «stack.pop»;
+			}
+			List* «tmpR» = filter(«source», «tmp», NULL);
+			'''->type.methods.findFirst[it.name == mc.name].returnType
+		}
+		else if (mc.name == 'forall' || mc.name == 'exists') {
+			val tmp = allocateTmp
+			val tmpR = allocateTmp
+			stack.push(tmpR)
+			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
+			val rTy = type.methods.findFirst[it.name == mc.name].returnType
+			'''
+			bool «tmp»(void* data, void* user_data) {
+				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+				«lambda.compile_to_c»
+				return «stack.pop»;
+			}
+			«rTy.c_declare_var» «tmpR» = «mc.name»(«source», «tmp», NULL);
+			'''->rTy
+		}
+		else if (mc.name == 'map') {
+			val tmp = allocateTmp
+			val tmpR = allocateTmp
+			stack.push(tmpR)
+			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
+			val mappedType = lambda.returnValue.type
+			val rTy = type.methods.findFirst[it.name == mc.name].returnType
+			val tmpFinal = allocateTmp
+			'''
+			void* «tmp»(void* data, void* user_data) {
+				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+				«lambda.compile_to_c»
+				«mappedType.c_declare_var»* «tmpFinal» = («mappedType.c_declare_var»*)malloc(sizeof(«mappedType.c_declare_var»));
+				*«tmpFinal» = «stack.pop»;
+				return «tmpFinal»;
+			}
+			«rTy.c_declare_var» «tmpR» = «mc.name»(«source», «tmp», NULL);
+			'''->new CollectionType("", mappedType)
+		}
+		else throw new UnsupportedOperationException("TODO222: auto-generated method stub")
+	}
 }

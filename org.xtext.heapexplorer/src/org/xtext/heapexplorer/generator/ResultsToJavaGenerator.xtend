@@ -8,6 +8,7 @@ import org.xtext.heapexplorer.heapExplorer.EntityData
 import java.util.List
 import org.xtext.heapexplorer.validation.CachedExpressionsTypeProvider
 import com.google.inject.Inject
+import org.xtext.heapexplorer.types.HETypeFactory
 
 class ResultsToJavaGenerator {
 	
@@ -20,7 +21,7 @@ class ResultsToJavaGenerator {
 	def java_declare_var(HeapExplorerType type) {
 		switch(type) {
 			CollectionType:'''List<«(type as CollectionType).baseType.name»>'''
-			default:'''«type.name»'''
+			default:if (type == HETypeFactory::boolType) '''boolean''' else '''«type.name»'''
 		}
 	}
 	

@@ -152,6 +152,8 @@ class HeapExplorerGenerator implements IGenerator {
 		
 		#include<stdio.h>
 		#include<stdlib.h>
+		#include<stdbool.h>
+		#include<string.h>
 		
 		#include "common.h"
 		#include "RuntimeObjects.h"
@@ -204,6 +206,7 @@ class HeapExplorerGenerator implements IGenerator {
 			return calloc(sizeof(«ConstantValuesForGeneration::PRINCIPAL_DATA»), 1);
 		}
 		
+«««		FIXME: This doesn't work if there is a type X and a type table-of X, then a data y:table-of X but no data of type X
 		«features.routine_to_create_main_result(analysis_name)»
 		
 		jobject localCreateResults

@@ -87,7 +87,7 @@ foreach(List* l, void action(void* data, void* user_data), void* user_data)
 	}
 }
 
-void
+List*
 append(List* dst, List* src)
 {
 	struct list_node* node = src->head->next;
@@ -95,6 +95,7 @@ append(List* dst, List* src)
 		add_to_list(dst, node->data);
 		node= node->next;
 	}
+	return dst; 
 }
 
 bool

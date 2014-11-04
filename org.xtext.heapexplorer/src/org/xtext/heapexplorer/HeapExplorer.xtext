@@ -25,7 +25,7 @@ GlobalProperty:
 
 Type:
 //	BaseType |
-	name=ID '=' definition=(TableType|StructType)
+	name=ID ':' definition=(TableType|StructType)
 ;
 
 TableType returns Type:
@@ -46,7 +46,7 @@ BaseType returns Type:
 ;
 
 EntityData:
-	name=ID '=' type=[Type]
+	name=ID ':' type=[Type]
 ;
 
 ComponentProperty :
@@ -85,7 +85,7 @@ Prefixed returns Expression:
 ;
 
 MemberCall:
-	{MemberCall} name=ID (op='()')? ('.' member+=MemberCall)?
+	{MemberCall} name=ID (op='(' parameters+=Expression (',' parameters+=Expression)* ')')? ('.' member+=MemberCall)?
 ;
 
 //FieldRef:
@@ -100,13 +100,15 @@ Atomic returns Expression:
     {GroupExpression} '(' group=Expression ')' |
     {NumberLiteral} value=INT |
     {StringLiteral} value=STRING | 
-    {BooleanLiteral} value=('true'|'false') |
+    {BooleanLiteral} value=('true'|'false') | 
     {Varr} name=ID |
     {CollectionLiteral} "#[" expressions+=Expression (',' expressions+=Expression)* ']' |
     {StructLiteral} 'struct' struct_type=[Type] '{' expressions+=Expression (',' expressions+=Expression)* '}' |
-    {LambdaExpression} "[" assignaments+=Assignament* "]"
+    {LambdaExpression} "[" ( lambdaParams+=LambdaParam+ '|')? assignaments+=Assignament* ("return" returnValue=Expression)? "]"
    //  | {VariableReference} ref=[Variable]
 ;
+
+LambdaParam : name=ID ':' type=[Type];
 
 Assignament:
 	name=ID '=' expression=Expression

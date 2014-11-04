@@ -32,7 +32,7 @@ map(List* l, void* transform(void* data, void* user_data), void* user_data);
 void
 foreach(List* l, void action(void* data, void* user_data), void* user_data);
 
-void
+List*
 append(List* dst, List* src);
 
 bool

@@ -123,6 +123,15 @@ class HETypeFactory {
 		_classType
 	}
 	
+	
+	def static HeapExplorerType createLambdaAction(HeapExplorerType type) {
+		new LambdaFunctionType("action", voidType, #[type])
+	}
+	
+	def static HeapExplorerType createLambdaPredicate(HeapExplorerType type) {
+		new LambdaFunctionType("predicate", boolType, #[type])
+	}
+	
 	static val private HashMap<String, HeapExplorerType> builtInProperties = new HashMap()
 	
 	def static getBuilInPropertyType(String propertyName) {
@@ -188,6 +197,15 @@ class HETypeFactory {
 			}
 			r
 		}
+		else unknownType
+	}
+	
+	def static boolean isAssignable(HeapExplorerType r_value, HeapExplorerType l_value) {
+		if (l_value instanceof ComposedType && r_value instanceof ComposedType)
+			commonAncestor(l_value, r_value) == l_value
+		else if (l_value instanceof CollectionType && r_value instanceof CollectionType)
+			isAssignable((r_value as CollectionType).baseType, (l_value as CollectionType).baseType)
+		else l_value == r_value
 	}
 	
 	def static boolean needLocalEnvironment(String name) {

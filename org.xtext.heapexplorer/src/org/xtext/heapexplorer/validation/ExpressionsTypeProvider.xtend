@@ -31,6 +31,9 @@ import java.util.ArrayList
 import org.xtext.heapexplorer.heapExplorer.LambdaExpression
 import org.xtext.heapexplorer.heapExplorer.EntityData
 import org.xtext.heapexplorer.heapExplorer.GroupExpression
+import org.xtext.heapexplorer.types.LambdaFunctionType
+import org.xtext.heapexplorer.heapExplorer.Assignament
+import org.xtext.heapexplorer.types.PointerType
 
 class ExpressionsTypeProvider {
 	
@@ -94,11 +97,25 @@ class ExpressionsTypeProvider {
 			val d = exp.eResource.allContents.filter(typeof(EntityData)).findFirst[
 				it.name == exp.name
 			]
-			if (d == null)
-				t
+			if (d != null) {
+				d.type.type
+			}
 			else {
-				val type = d.type.type
-				type	
+				// maybe it is a local variable within a lambda expression
+				var c = exp.eContainer
+				while (c!= null && !(c instanceof LambdaExpression)) {
+					log.error("TYPE OF THING " + c.eClass.name)
+					c = c.eContainer
+				}
+				if (c != null) {
+					val l = c as LambdaExpression
+					if (l.lambdaParams != null && l.lambdaParams.exists[it.name == exp.name]) {
+						val tt = l.lambdaParams.findFirst[it.name == exp.name].type.type
+						log.error("TYPE FOUND " + tt.name)
+						new PointerType(tt)
+					} else unknownType
+				}
+				else unknownType
 			}
 		}
 		else 
@@ -191,33 +208,59 @@ class ExpressionsTypeProvider {
 			if (callerType.methods.exists[it.name == m.name]){
 				m.type(callerType)
 			}
-			else { 
-				if (callerType instanceof ComposedType &&
+			else if (callerType instanceof ComposedType &&
 					(callerType as ComposedType).fields.exists[
 						it.key == m.name
 					]
-				) {
-					m.type(callerType)
-				}
-				else
-					unknownType
+			) {
+				m.type(callerType)
 			}
+			else if (callerType instanceof PointerType &&
+					 (callerType as PointerType).pointTo instanceof ComposedType &&
+					( (callerType as PointerType).pointTo as ComposedType).fields.exists[
+						it.key == m.name
+					]
+			) {
+				m.type((callerType as PointerType).pointTo)
+			}
+			else
+				unknownType
 			
 		}
 	}
 	
 	def HeapExplorerType type(MemberCall m, HeapExplorerType het) {
-		log.error(String.format("hey=%s methods=%s", het, het.methods))
 		if (het.methods.exists[it.name == m.name]) {
-			val returnType = het.methods.findFirst[it.name == m.name].returnType
-			if (m.member == null || m.member.empty)
-				returnType
+			val method = het.methods.findFirst[it.name == m.name]
+			// check parameters
+			val actualParamters = m.parameters.map[it.type]
+			if (method.name != 'map' && method.areValidParametersForCall(actualParamters) == false) {
+				unknownType
+			}
+			else if (m.member == null || m.member.empty) {
+				if (method.name == 'map' && het instanceof CollectionType) {
+					if (actualParamters.size == 1 && actualParamters.get(0) instanceof LambdaFunctionType) {
+						val lt = actualParamters.get(0) as LambdaFunctionType
+						if (1 == lt?.params.size && lt.params.get(0).equals((het as CollectionType).baseType) && !HETypeFactory::voidType.equals(lt.returnType))
+							new CollectionType("", lt.returnType)
+						else unknownType
+					}
+					else unknownType
+				}
+				else method.returnType	
+			}
 			else {
 				val subcall = m.member.get(0) as MemberCall
-//				if (returnType.methods.exists[it.name == subcall.name])
-					subcall.type(returnType)
-//				else
-//					unknownType
+				if (method.name == 'map' && het instanceof CollectionType) {
+					if (actualParamters.size == 1 && actualParamters.get(0) instanceof LambdaFunctionType) {
+						val lt = actualParamters.get(0) as LambdaFunctionType
+						if (1 == lt?.params.size && lt.params.get(0).equals((het as CollectionType).baseType) && !HETypeFactory::voidType.equals(lt.returnType))
+							subcall.type(new CollectionType("", lt.returnType))
+						else unknownType
+					}
+					else unknownType
+				}
+				else subcall.type(method.returnType)
 			}
 		}
 		else if (het instanceof ComposedType && (het as ComposedType).fields.exists[it.key == m.name]) {
@@ -268,8 +311,9 @@ class ExpressionsTypeProvider {
 			if (p.expressions.exists[
 				val t = it.type
 				t == unknownType
-			])
+			]) {
 				unknownType
+			}
 			else {
 				val structTypeTMP = p.eResource.allContents.filter(Type).filter[
 					it.name != null
@@ -313,10 +357,38 @@ class ExpressionsTypeProvider {
 	}
 	
 	def dispatch HeapExplorerType type(LambdaExpression exp) {
-		HETypeFactory::voidType
+		val p = if (exp.lambdaParams == null) #[] else exp.lambdaParams.map[it.type.type]
+		val ret = if (exp.returnValue != null) exp.returnValue.type
+		else HETypeFactory::voidType
+		new LambdaFunctionType("anonimousLambda", ret, p)
 	}
 	
 	def dispatch HeapExplorerType type(GroupExpression e) {
 		e.group.type
+	}
+	
+	def dispatch HeapExplorerType type(Assignament a) {
+		// check if it is an user-defined property
+		val d = a.eResource.allContents.filter(typeof(EntityData)).findFirst[
+			it.name == a.name
+		]
+		if (d != null) {
+			d.type.type
+		}
+		else {
+			// maybe it is a local variable within a lambda expression
+			var c = a.eContainer
+			while (c!= null && !(c instanceof LambdaExpression)) {
+				c = c.eContainer
+			}
+			if (c != null) {
+				val l = c as LambdaExpression
+				if (l.lambdaParams != null && l.lambdaParams.exists[it.name == a.name]) {
+					val tt = l.lambdaParams.findFirst[it.name == a.name].type.type
+					new PointerType(tt)
+				} else unknownType
+			}
+			else unknownType
+		}
 	}
 }

@@ -26,11 +26,15 @@ class HeapExplorerType {
 		o!= null && o.class == HeapExplorerType && (o as HeapExplorerType).name == _name
 	}
 	
-	public def addMethods(List<HeapExplorerMethod> m) {
+	def addMethod(HeapExplorerMethod m) {
+		_methods.add(m)
+	}
+	
+	def addMethods(List<HeapExplorerMethod> m) {
 		_methods.addAll(m)
 	}
 	
-	public def List<HeapExplorerMethod> methods() {
+	def List<HeapExplorerMethod> methods() {
 		_methods
 	}
 	

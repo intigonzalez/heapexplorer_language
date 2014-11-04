@@ -34,6 +34,8 @@ import org.apache.log4j.Logger
 import org.xtext.heapexplorer.heapExplorer.Instance
 import org.xtext.heapexplorer.heapExplorer.Atomic
 import org.xtext.heapexplorer.heapExplorer.MemberCall
+import org.xtext.heapexplorer.types.LambdaFunctionType
+import org.xtext.heapexplorer.heapExplorer.Assignament
 
 //import org.eclipse.xtext.validation.Check
 
@@ -53,22 +55,22 @@ class HeapExplorerValidator extends AbstractHeapExplorerValidator {
 		if (type!= null && type.type.equals(HETypeFactory::unknownType)){
 			switch (type) {
 				BaseType: {
-					error("Error defining the type: " + type.name,
+					error("Error defining the type: " + type.name + " in " + type.eResource.URI,
 						HeapExplorerPackage$Literals::TYPE__NAME
 					)
 				}
 				StructType: {
-					error("Error defining the type",
+					error("Error defining the type" + " in " + type.eResource.URI,
 						HeapExplorerPackage$Literals::STRUCT_TYPE__OP
 					)
 				}
 				TableType: {
-					error("Error defining the type 111 " + type.type + " " + (type as TableType).base_type,
+					error("Error defining the type 111 " + type.type + " " + (type as TableType).base_type  + " in " + type.eResource.URI,
 						HeapExplorerPackage$Literals::TABLE_TYPE__OP
 					)
 				}
 				default: {
-					error("Error defining the type: " + type.name,
+					error("Error defining the type: " + type.name  + " in " + type.eResource.URI,
 						HeapExplorerPackage$Literals::TYPE__NAME
 					)
 				}
@@ -81,10 +83,47 @@ class HeapExplorerValidator extends AbstractHeapExplorerValidator {
 	@Check
 	def checkComponentPropertyAssignament(ComponentProperty p) {
 		val expected = p.property.type.type
-		val observed = p.expression.type 
-		if (!expected.equals(observed) && !expected.canReceive(observed)) {
-			error(String.format("Cannot assign %s to %s.", observed, expected),
+		val observed = p.expression.type
+		if (observed instanceof LambdaFunctionType) {
+			val l = (observed as LambdaFunctionType)
+			val lr = l.returnType
+			if (!expected.equals(lr) && !expected.canReceive(lr)) {
+					error(String.format("Cannot assign %s to %s. in ", observed, expected, p.eResource.URI),
+						HeapExplorerPackage$Literals::COMPONENT_PROPERTY__PROPERTY
+					)
+			}
+			else if (l.params == null || l.params.size > 0)
+					error(String.format("Cannot assign %s to %s. in ", observed, expected, p.eResource.URI),
+						HeapExplorerPackage$Literals::COMPONENT_PROPERTY__PROPERTY
+					)
+		}
+		else if (!expected.equals(observed) && !expected.canReceive(observed)) {
+			error(String.format("Cannot assign %s to %s. in ", observed, expected, p.eResource.URI),
 				HeapExplorerPackage$Literals::COMPONENT_PROPERTY__PROPERTY
+			)
+		}
+	}
+	
+	@Check
+	def checkAssignamentWithinLambda(Assignament a) {
+		val expected = a.type
+		val observed = a.expression.type
+		if (observed instanceof LambdaFunctionType) {
+			val l = (observed as LambdaFunctionType)
+			val lr = l.returnType
+			if (!expected.equals(lr) && !expected.canReceive(lr)) {
+					error(String.format("Cannot assign %s to %s. in ", observed, expected, a.eResource),
+						HeapExplorerPackage$Literals::ASSIGNAMENT__NAME
+					)
+			}
+			else if (l.params == null || l.params.size > 0)
+					error(String.format("Cannot assign %s to %s. in ", observed, expected, a.eResource),
+						HeapExplorerPackage$Literals::ASSIGNAMENT__NAME
+					)
+		}
+		else if (!expected.equals(observed) && !expected.canReceive(observed)) {
+			error(String.format("Cannot assign %s to %s. in ", observed, expected, a.eResource),
+				HeapExplorerPackage$Literals::ASSIGNAMENT__NAME
 			)
 		}
 	}
@@ -94,7 +133,7 @@ class HeapExplorerValidator extends AbstractHeapExplorerValidator {
 		if (!(m instanceof MemberCall) && !(m instanceof Atomic)) {
 			if (m!=null && m.type.equals(ExpressionsTypeProvider.unknownType))
 				// FIXME the second parameter is wrong 
-				error(String.format("Wrong type for grammar element: %s.", m.class),
+				error(String.format("Wrong type for grammar element: %s. in", m.eClass.name, m.eResource),
 					m.eClass.getEStructuralFeature(
 						HeapExplorerPackage$Literals::COMPARISON__OP.name
 					)
@@ -107,7 +146,7 @@ class HeapExplorerValidator extends AbstractHeapExplorerValidator {
 	def dispatch void checkExpressionType(Instance m) {
 		val t = m.names.type
 		if (!t.equals(HETypeFactory::stringType) && !HETypeFactory.isCollectionOf(t, HETypeFactory::stringType))
-			error("Wrong type for instance's names: ",
+			error("Wrong type for instance's names: " + " in " + m.eResource.URI,
 				HeapExplorerPackage$Literals::INSTANCE__NAMES
 			)
 	}
