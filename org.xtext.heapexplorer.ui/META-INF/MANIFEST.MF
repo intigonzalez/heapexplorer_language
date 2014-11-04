@@ -15,7 +15,11 @@ Require-Bundle: org.xtext.heapexplorer;visibility:=reexport,
  org.antlr.runtime,
  org.eclipse.xtext.common.types.ui,
  org.eclipse.xtext.ui.codetemplates.ui,
- org.eclipse.compare
+ org.eclipse.compare,
+ org.eclipse.core.expressions;bundle-version="3.4.501",
+ org.eclipse.jdt.core;bundle-version="3.9.2",
+ org.eclipse.jdt.launching,
+ org.eclipse.core.resources
 Import-Package: org.apache.log4j,
  org.eclipse.xtext.xbase.lib
 Bundle-RequiredExecutionEnvironment: J2SE-1.5

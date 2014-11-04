@@ -17,19 +17,28 @@ Require-Bundle: org.eclipse.xtext;visibility:=reexport,
  org.eclipse.emf.common,
  org.antlr.runtime,
  org.eclipse.xtext.common.types,
- org.objectweb.asm;bundle-version="[5.0.1,6.0.0)";resolution:=optional
+ org.objectweb.asm;bundle-version="[5.0.1,6.0.0)";resolution:=optional,
+ org.eclipse.core.resources,
+ org.eclipse.ui.console;bundle-version="3.5.200",
+ org.eclipse.jface;bundle-version="3.9.1",
+ org.eclipse.jdt.launching;bundle-version="3.7.1"
 Import-Package: org.apache.log4j,
- org.eclipse.xtext.xbase.lib
+ org.eclipse.core.runtime;version="3.4.0",
+ org.eclipse.jdt.core,
+ org.eclipse.ui.commands,
+ org.eclipse.xtext.xbase.lib,
+ org.osgi.framework;version="1.7.0"
 Bundle-RequiredExecutionEnvironment: J2SE-1.5
 Export-Package: org.xtext.heapexplorer,
- org.xtext.heapexplorer.services,
+ org.xtext.heapexplorer.formatting,
+ org.xtext.heapexplorer.generator,
  org.xtext.heapexplorer.heapExplorer,
  org.xtext.heapexplorer.heapExplorer.impl,
  org.xtext.heapexplorer.heapExplorer.util,
- org.xtext.heapexplorer.serializer,
+ org.xtext.heapexplorer.natures,
  org.xtext.heapexplorer.parser.antlr,
  org.xtext.heapexplorer.parser.antlr.internal,
- org.xtext.heapexplorer.validation,
  org.xtext.heapexplorer.scoping,
- org.xtext.heapexplorer.generator,
- org.xtext.heapexplorer.formatting
+ org.xtext.heapexplorer.serializer,
+ org.xtext.heapexplorer.services,
+ org.xtext.heapexplorer.validation
