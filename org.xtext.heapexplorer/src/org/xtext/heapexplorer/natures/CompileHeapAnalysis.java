@@ -78,9 +78,11 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 					String analysis = res.getName().substring(0,
 							res.getName().lastIndexOf('.'));
 					Path p = new Path("src-gen/" + analysis);
-					IContainer c = getProject().getFolder(p);
-					if (!c.exists())
-						return false;
+					IFolder c = getProject().getFolder(p);
+					if (!c.exists()) {
+//						return false;
+						c.create(true, true, null);
+					}
 					IFile makefile = c.getFile(new Path("Makefile"));
 					if (!makefile.exists()) {
 
@@ -156,7 +158,7 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 			e.printStackTrace();
 		}
 	}
-
+ 
 	private MessageConsole findConsole(String name) {
 		ConsolePlugin plugin = ConsolePlugin.getDefault();
 		IConsoleManager conMan = plugin.getConsoleManager();
@@ -180,6 +182,7 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 
 	protected void incrementalBuild(IResourceDelta delta,
 			IProgressMonitor monitor) throws CoreException {
+		
 		// the visitor does the work.
 		delta.accept(new MyBuildResourceDeltaVisitor());
 	}
@@ -223,7 +226,4 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 		for (IResource r: l) r.delete(true, monitor);
 	}
 	
-	
-	
-
 }

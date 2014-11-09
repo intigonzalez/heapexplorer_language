@@ -5,6 +5,7 @@ import java.util.List
 import org.xtext.heapexplorer.heapExplorer.HeapExplorer
 import java.util.ArrayList
 import org.apache.log4j.Logger
+import javax.xml.ws.soap.AddressingFeature.Responses
 
 class HETypeFactory {
 	static val private HeapExplorerType _stringType = new HeapExplorerType("string")
@@ -81,6 +82,7 @@ class HETypeFactory {
 //				new HeapExplorerMethod("size", _intType)
 			])
 			_objectType.addField("size", _intType)
+			_objectType.addField("clazz", _classType)
 		}
 		_objectType
 	}
@@ -119,6 +121,7 @@ class HETypeFactory {
 				new HeapExplorerMethod("idParent", _intType),
 				new HeapExplorerMethod("idClassLoader", _intType)
 			])
+			_classType.addField("name", _stringType)
 		}
 		_classType
 	}

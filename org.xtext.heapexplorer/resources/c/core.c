@@ -30,12 +30,13 @@ jint JNICALL callback_all_alive_objects
 	InnerPrincipal* iPrinc = (InnerPrincipal*)princ->user_data;
 	ResourcePrincipalData* dPrinc = (ResourcePrincipalData*)iPrinc->princ;
 
-	static int loco = 0;
-
 	// the class has a tag
 	if ( (class_tag != (jlong)0)) {
 		ClassDetails *d = (ClassDetails*)getDataFromTag(class_tag);
 		LocalEnvironment env;
+
+		env.this_class.name = getClassSignature(d);
+		env.current.clazz = &env.this_class;
 
 		env.refereceKind = reference_kind;
 		env.current.size = size;
@@ -53,13 +54,12 @@ jint JNICALL callback_all_alive_objects
 		else
 			env.current.membership = 0;
 		
-
 		int flag = iPrinc->type->member(&env, dPrinc);
 		if (flag) {
 			iPrinc->type->on_inclusion(&env, dPrinc);
-			if (loco % 1000 == 0)
-				fprintf(stderr, "blblb %d\n", (loco));
-			++loco;
+			//if (loco % 1000 == 0)
+			//	fprintf(stderr, "blblb %d\n", (loco));
+			//++loco;
 			if ((*tag_ptr) == 0)
 				*tag_ptr = tagForObject(princ);
 			else

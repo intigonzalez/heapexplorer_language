@@ -59,17 +59,20 @@ class ExtensionExpressionCompilationProvider {
 		// types
 	def dispatch String c_representation(BaseType t) {
 		if (t.name == "bool")	"int"
-		else if (t.name == "string") "char*"
+		else if (t == HETypeFactory::stringType) "char*"
 		else t.name
 	}
 	
 	def String c_declare_var(HeapExplorerType t) {
 		switch (t) {
-			ComposedType:t.name
+			ComposedType:if (!HETypeFactory::builtInTypes.exists[it == t]) t.name
+						 else if (t == HETypeFactory::classType)
+						 	"struct LocalClass*"
+						 else "WHAT_TYPE_IS_THIS"
 			CollectionType: "List*" //t.name
 			default: {
 				if (t.name == "bool")	"int"
-				else if (t.name == "string") "char*"
+				else if (t == HETypeFactory::stringType) "char*"
 				else t.name
 			}
 		}
@@ -78,7 +81,7 @@ class ExtensionExpressionCompilationProvider {
 	def dispatch String c_representation(StructType s) '''
 		typedef struct {
 			«FOR f:s.fields»
-			«f.field_type.name» «f.name»;
+			«f.field_type.type.c_declare_var» «f.name»;
 			«ENDFOR»
 		} '''
 	
@@ -263,7 +266,10 @@ class ExtensionExpressionCompilationProvider {
 		val l_right = stack.pop
 		val l_left = stack.pop
 		val tmp = allocateTmp()
-		val s1 = '''«e.type.c_declare_var» «tmp» = «l_left» «e.op» == «l_right»;
+		val tLeft = e.left.type
+		val s1 = '''
+«««		«IF tLeft == HETypeFactory::stringType»printf("MIERDAAAAAAAAAAAAAAA %s %s\n",«l_left», «l_right»);«ENDIF»
+		«e.type.c_declare_var» «tmp» = «IF tLeft == HETypeFactory::stringType»!strcmp(«l_left», «l_right»)«ELSE»«l_left» «e.op» «l_right»«ENDIF»;
 		'''
 		stack.push(tmp)
 		s0 + s1
@@ -368,8 +374,12 @@ class ExtensionExpressionCompilationProvider {
 		'''->tyTmp
 	}
 	def dispatch Pair<String, HeapExplorerType> c_get_Member(ComposedType type, String source, MemberCall mc) {
-		val tyTmp = mc.type(type)
 		val isMethod = type.methods.exists[it.name == mc.name]
+		val tyTmp = if (type.fields.exists[it.key == mc.name])
+						type.fields.findFirst[it.key == mc.name].value 
+					else if (isMethod)
+						type.methods.findFirst[it.name == mc.name].returnType
+		
 		val isBuiltIn = HETypeFactory.builtInTypes.exists[it == type]
 		val tmp = allocateTmp
 		stack.push(tmp)

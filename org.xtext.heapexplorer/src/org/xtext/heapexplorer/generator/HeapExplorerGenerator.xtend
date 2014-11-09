@@ -60,8 +60,6 @@ class HeapExplorerGenerator implements IGenerator {
 				it.name!="membership" && it.name!="on_inclusion" && it.name!="root_objects"
 				].toList
 		
-		if (!analyisName.contains("simple")) return;
-		
 		// Java Code
 		fsa.generateFile(analyisName +'/' + javaFile, resource.javaCode(analyisName))
 		

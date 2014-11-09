@@ -34,12 +34,15 @@ class ComposedType extends HeapExplorerType {
 		var b = o != null && o.class == ComposedType && (o as ComposedType).name == name
 		if (!b) return false
 		val f1 = fields
-		val fExtra = (o as ComposedType).fields
-		b = f1.size == fExtra.size
+		val f2 = (o as ComposedType).fields
+		b = f1.size == f2.size
 		if (b) {
 			var i = 0
 			while (i < f1.size && b) {
-				b = f1.get(i).value.equals(fExtra.get(i).value)
+				val t1 = f1.get(i).value
+				val t2 = f2.get(i).value
+				b =(t1 === t2)
+				b = b || (t1 == t2)
 				i++;
 			}
 		}
@@ -83,7 +86,7 @@ class ComposedType extends HeapExplorerType {
 			val myFields = fields
 			val otherFields = (type as ComposedType).fields;
 			for (var i = 0 ; r && i<myFields.size ; i++) {
-				r = myFields.get(i).value.superTypeOf(otherFields.get(i).value)
+				r = ( myFields.get(i).value === otherFields.get(i).value) ||  myFields.get(i).value.superTypeOf(otherFields.get(i).value)
 			}
 		}
 		r

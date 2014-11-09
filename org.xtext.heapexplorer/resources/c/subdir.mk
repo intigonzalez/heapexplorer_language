@@ -41,4 +41,4 @@ OBJS_FILES:=
 SRCS:=
 
 # Source list, common part
-SRCS+=../core/list.c ../core/common.c ../core/from_dsl0.c ../core/RuntimeObjects.c
+SRCS+=../core/list.c ../core/common.c ../core/core.c ../core/RuntimeObjects.c

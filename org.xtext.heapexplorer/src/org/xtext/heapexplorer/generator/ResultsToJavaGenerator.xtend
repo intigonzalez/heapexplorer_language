@@ -21,7 +21,11 @@ class ResultsToJavaGenerator {
 	def java_declare_var(HeapExplorerType type) {
 		switch(type) {
 			CollectionType:'''List<«(type as CollectionType).baseType.name»>'''
-			default:if (type == HETypeFactory::boolType) '''boolean''' else '''«type.name»'''
+			default:if (type == HETypeFactory::boolType) 
+						'''boolean'''
+					else if (type == HETypeFactory::stringType)
+						'''String'''
+					else '''«type.name»'''
 		}
 	}
 	
@@ -155,6 +159,8 @@ class ResultsToJavaGenerator {
 				«FOR st : fields SEPARATOR ','»
 				«IF st.value instanceof ComposedType || st.value instanceof CollectionType»
 				«st.key»
+				«ELSEIF st.value == HETypeFactory::stringType»
+				(*jniEnv) -> NewStringUTF(jniEnv, o->«st.key»)
 				«ELSE»
 				o->«st.key»
 				«ENDIF»
