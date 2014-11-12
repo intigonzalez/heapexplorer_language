@@ -13,11 +13,11 @@ plugin: $(ANALYSIS_LIB)
 	@echo "Done $<"
 
 $(ANALYSIS_LIB): $(OBJS)
-	$(CC) $(CFLAGS) -Wl,-soname=$@ -static-libgcc -L. $(LDFLAGS) -shared -o $@ $^ -lc -l${LIBNAME}
+	g++ $(CFLAGS) -std=c++11 -Wl,-soname=$@ -static-libgcc -L. $(LDFLAGS) -shared -o $@ $^ -lc -l${LIBNAME}
 
-%.o: %.c
+%.o: %.cpp
 	@echo "Building $@"
-	$(CC) $(CFLAGS) -std=c99 -c -o $@ $<
+	g++ $(CFLAGS) -std=c++11 -c -o $@ $<
 
 # Cleanup the built bits
 clean:

@@ -1,8 +1,8 @@
 #ifndef __RUNTIME_OBJECTS__
 #define __RUNTIME_OBJECTS__
 
-#include "list.h"
+#include "common.h"
 
-List* getThreads();
+ListOfObjects getThreads(EntityEnvironment* env);
 
 #endif

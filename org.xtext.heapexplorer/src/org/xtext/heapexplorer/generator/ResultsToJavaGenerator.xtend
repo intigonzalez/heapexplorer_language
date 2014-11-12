@@ -18,9 +18,9 @@ class ResultsToJavaGenerator {
 	
 	val routines = new HashMap<HeapExplorerType, String>
 	
-	def java_declare_var(HeapExplorerType type) {
+	def String java_declare_var(HeapExplorerType type) {
 		switch(type) {
-			CollectionType:'''List<«(type as CollectionType).baseType.name»>'''
+			CollectionType:'''List<«(type as CollectionType).baseType.java_declare_var»>'''
 			default:if (type == HETypeFactory::boolType) 
 						'''boolean'''
 					else if (type == HETypeFactory::stringType)
@@ -61,18 +61,18 @@ class ResultsToJavaGenerator {
 		load_classes_hidden_ArrayList(JNIEnv * jniEnv)
 		{
 			if (clazzList == NULL) {
-				clazzList = (*jniEnv)->FindClass(jniEnv, "java/util/ArrayList");
+				clazzList = jniEnv->FindClass("java/util/ArrayList");
 				if (clazzList == NULL) {
 					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList in localCreateResults\n");
 					exit(1);
 				}
-				clazzList =(*jniEnv)->NewGlobalRef(jniEnv, clazzList);
-				constructorArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "<init>", "()V");
+				clazzList = (jclass)jniEnv->NewGlobalRef(clazzList);
+				constructorArrayList = jniEnv->GetMethodID(clazzList, "<init>", "()V");
 				if (constructorArrayList == NULL) {
 					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::<init> in localCreateResults\n");
 					exit(1);
 				}
-				addArrayList = (*jniEnv)->GetMethodID(jniEnv, clazzList, "add", "(Ljava/lang/Object;)Z");
+				addArrayList = jniEnv->GetMethodID(clazzList, "add", "(Ljava/lang/Object;)Z");
 				if (addArrayList == NULL) {
 					fprintf(stderr, "ERROR: Impossible to obtain java/util/ArrayList::add(Object) in localCreateResults\n");
 					exit(1);
@@ -102,16 +102,16 @@ class ResultsToJavaGenerator {
 		load_classes_«cTypeToCopy»(JNIEnv * jniEnv)
 		{
 			if (resultClass_«javaTypeToCreate» == NULL) {
-				char* signatureCnstr = "(«FOR d : fields»«d.value.jvmSpecType(analysisName)»«ENDFOR»)V";
+				const char* signatureCnstr = "(«FOR d : fields»«d.value.jvmSpecType(analysisName)»«ENDFOR»)V";
 				// obtain class representing the whole result
-				resultClass_«javaTypeToCreate» = (*jniEnv)->FindClass(jniEnv, "«analysisName»/«javaTypeToCreate»");
+				resultClass_«javaTypeToCreate» = jniEnv->FindClass("«analysisName»/«javaTypeToCreate»");
 				if (resultClass_«javaTypeToCreate» == NULL) {
 					fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate» in %s%d\n",
 					__FILE__, __LINE__);
 					exit(1);
 				}
-				resultClass_«javaTypeToCreate» =(*jniEnv)->NewGlobalRef(jniEnv, resultClass_«javaTypeToCreate»);
-				constructor_«javaTypeToCreate» = (*jniEnv)->GetMethodID(jniEnv, resultClass_«javaTypeToCreate», "<init>", signatureCnstr);
+				resultClass_«javaTypeToCreate» = (jclass)jniEnv->NewGlobalRef(resultClass_«javaTypeToCreate»);
+				constructor_«javaTypeToCreate» = jniEnv->GetMethodID(resultClass_«javaTypeToCreate», "<init>", signatureCnstr);
 				if (constructor_«javaTypeToCreate» == NULL) {
 					fprintf(stderr, "ERROR: Impossible to obtain «analysisName»/«javaTypeToCreate»::<init>(%s) in %s:%d\n",
 					signatureCnstr,
@@ -143,24 +143,31 @@ class ResultsToJavaGenerator {
 			«IF st.value instanceof ComposedType»
 			«st.key» = create_«analysisName»_«st.value.name»(jniEnv, &o->«st.key»);
 			«ELSEIF st.value instanceof CollectionType»
-			«st.key» = (*jniEnv)->NewObject(jniEnv, clazzList, constructorArrayList);
-			void myaction_«st.key»(void* data, void* user_data) {
-				jobject el = «routines.get((st.value as CollectionType).baseType)»(jniEnv, («(st.value as CollectionType).baseType.c_declare_var»*) data);
-				(*jniEnv)->CallObjectMethod(jniEnv, «st.key», addArrayList, el);
-			}
-			foreach(o->«st.key», myaction_«st.key», NULL);
+			«st.key» = jniEnv->NewObject(clazzList, constructorArrayList);
+			auto myaction_«st.key»= [&jniEnv,&«st.key»](«(st.value as CollectionType).baseType.c_declare_var»& data) {
+				«IF (st.value as CollectionType).baseType == HETypeFactory::stringType»
+				jobject el = jniEnv -> NewStringUTF(data.c_str());
+				«ELSEIF (st.value as CollectionType).baseType == HETypeFactory::intType»
+				implementalo
+				«ELSE»
+				jobject el = «routines.get((st.value as CollectionType).baseType)»(jniEnv, &data);
+				«ENDIF»
+				// this line here looks quite dangerous. I think it doesn't keep a good reference.
+				jniEnv->CallObjectMethod(«st.key», addArrayList, el);
+			};
+			std::for_each(o->«st.key».begin(), o->«st.key».end(), myaction_«st.key»);
 			«ENDIF»
 			«ENDFOR»
 			
 			// load the classes
 			load_classes_«cTypeToCopy»(jniEnv);
 			
-			result = (*jniEnv)->NewObject(jniEnv, resultClass_«javaTypeToCreate», constructor_«javaTypeToCreate»,
+			result = jniEnv->NewObject(resultClass_«javaTypeToCreate», constructor_«javaTypeToCreate»,
 				«FOR st : fields SEPARATOR ','»
 				«IF st.value instanceof ComposedType || st.value instanceof CollectionType»
 				«st.key»
 				«ELSEIF st.value == HETypeFactory::stringType»
-				(*jniEnv) -> NewStringUTF(jniEnv, o->«st.key»)
+				jniEnv -> NewStringUTF(o->«st.key».c_str())
 				«ELSE»
 				o->«st.key»
 				«ENDIF»

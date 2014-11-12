@@ -53,7 +53,7 @@ class HeapExplorerGenerator implements IGenerator {
 		
 		val analyisName = resource.analysisName
 		val headerFile = analyisName + '.h'
-		val codeFile = analyisName + '.c'
+		val codeFile = analyisName + '.cpp'
 		val javaFile = analyisName + '.java'
 		
 		features = resource.allContents.filter(typeof(EntityData)).filter[
@@ -135,6 +135,9 @@ class HeapExplorerGenerator implements IGenerator {
 		#ifndef __«f.toUpperCase»__
 		#define __«f.toUpperCase»__
 		
+		#include <string>
+		#include <vector>
+		
 		// user-defined types
 		«FOR t: resource.allContents.filter(typeof(Type)).filter[t|t.name!= null && !(t instanceof BaseType)].toIterable»
 		// type definition for «t.name»
@@ -170,8 +173,9 @@ class HeapExplorerGenerator implements IGenerator {
 		'''
 	
 	def CharSequence code(Resource resource, String analysis_name)'''
-		#include "list.h"
 		#include "«analysis_name».h"
+		
+		#include <algorithm>
 		
 		// methods to initialize properties
 		«FOR c : resource.allContents.filter(typeof(ComponentType)).toIterable BEFORE '\n'»
@@ -201,7 +205,7 @@ class HeapExplorerGenerator implements IGenerator {
 		// method to create new instances of ResourcePrincipalData
 		void* instances_createResourcePrincipalData()
 		{
-			return calloc(sizeof(«ConstantValuesForGeneration::PRINCIPAL_DATA»), 1);
+			return new «ConstantValuesForGeneration::PRINCIPAL_DATA»();
 		}
 		
 		«ResultsToJavaGenerator::routine_to_load_lists»

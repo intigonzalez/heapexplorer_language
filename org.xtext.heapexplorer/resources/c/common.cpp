@@ -45,27 +45,26 @@ createInstances(ResourcePrincipalType* types, int count, int* nbInstances)
 {
 	InnerPrincipal* result = 0;
 	GlobalEnvironment env;
-	char** names = (char**)malloc(sizeof(char*)*100); // FIXME: static number of maximum number of components
-	int* idxType = (int*)malloc(sizeof(int)*100);
+	std::vector<std::string> names;
+	std::vector<int> idxType;
 	int n = 0;
 	// create instances	
 	for (int i = 0 ; i < count ; i++) {
 		if (types[i].singleInstance) {
-			names[n] = types[i].singleInstance(&env);
-			idxType[n++] = i; 
+			names.push_back(types[i].singleInstance(&env));
+			idxType.push_back(i);
+			n++;
 		}
 		else if (types[i].multipleInstances) {
 			fprintf(stderr, "Unimplemened branch %s:%d", __FILE__, __LINE__);
 			exit(1);
 		}	
 	}
-	result = (InnerPrincipal*)calloc(sizeof(InnerPrincipal), n);
+	result = new InnerPrincipal[n];
 	for (int i = 0 ; i < n; i++) {
 		result[i].type = &types[idxType[i]];
 		result[i].princ = result[i].type->createPrincipalData();
 	}
-	free(names);
-	free(idxType);
 	*nbInstances = n;
 	return result;
 }
@@ -78,7 +77,7 @@ initializeInstances(InnerPrincipal* princs, int nbInstances)
 	// calculate root objects
 	for (int i = 0 ; i < nbInstances ; i++) {
 		// FIXME: get a real list as result
-		List* l = princs[i].type->root_objects(&env, &princs[i].princ);
+		ListOfObjects l = princs[i].type->root_objects(&env, &princs[i].princ);
 		// TODO, call on_inclusion on each element of the list
 	}
 

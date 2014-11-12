@@ -1,7 +1,8 @@
 #ifndef __COMMON_DSL__
 #define __COMMON_DSL__
 
-#include "list.h"
+#include <vector>
+#include <string>
 
 #define THIS LocalGetThis(env)
 #define REFERRER LocalGetReferrer(env)
@@ -43,6 +44,8 @@ typedef struct {
 	OBJECT_COMUNALITY
 } LocalObject;
 
+typedef std::vector<LocalObject*> ListOfObjects;
+
 /*============================================================
 	Each environment specifies the values a property
 	has access to 
@@ -75,19 +78,19 @@ typedef struct {
 typedef void* (*Create_Principal_Data)
 		();
 
-typedef List* (*RootObjects_Initialization_Callback) 
+typedef ListOfObjects (*RootObjects_Initialization_Callback) 
 		(EntityEnvironment* env, void* princ);
 
-typedef int (*Membership_Callback)
+typedef bool (*Membership_Callback)
 		(LocalEnvironment* env, void* princ);
 
 typedef void (*On_Inclusion_Callback)
 		(LocalEnvironment* env, void* princ);
 
-typedef char* (*On_Single_Instance_Creation)
+typedef std::string (*On_Single_Instance_Creation)
 		(GlobalEnvironment* env);
 
-typedef char** (*On_Multiple_Instances_Creation)
+typedef std::vector<std::string> (*On_Multiple_Instances_Creation)
 		(GlobalEnvironment* env);
 
 typedef void (*UserDefined_Initialization_Callback) 

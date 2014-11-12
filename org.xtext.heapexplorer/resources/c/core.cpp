@@ -82,8 +82,7 @@ explore_FollowReferencesAll(
 
 	(void)memset(&heapCallbacks, 0, sizeof(heapCallbacks));
     heapCallbacks.heap_reference_callback = &callback_all_alive_objects;
-    err = (*jvmti)->FollowReferences(jvmti,
-                   JVMTI_HEAP_FILTER_CLASS_UNTAGGED, NULL, NULL,
+    err = jvmti->FollowReferences(JVMTI_HEAP_FILTER_CLASS_UNTAGGED, NULL, NULL,
                    &heapCallbacks, (const void*)principal);
     check_jvmti_error(jvmti, err, "iterate through heap");
 }
@@ -114,12 +113,14 @@ jint createPrincipals(jvmtiEnv* jvmti, JNIEnv *jniEnv,
 			(*principals)[j].details[i].info = &infos[i];
 
 		(*principals)[j].tag = (j+1);
-		(*principals)[j].strategy_to_explore = &explore_FollowReferencesAll;
+		(*principals)[j].strategy_to_explore = (void*)&explore_FollowReferencesAll;
     }
 	return count_principals;
 }
 
-/** Fill a structure with the infomation about the plugin 
+extern "C" {
+
+/** Fill a structure with the information about the plugin 
 * Returns 0 if everything was OK, a negative value otherwise	
 */
 int DECLARE_FUNCTION(HeapAnalyzerPlugin* r)
@@ -129,4 +130,6 @@ int DECLARE_FUNCTION(HeapAnalyzerPlugin* r)
 	r->createPrincipals = createPrincipals;
 	r->createResults = localCreateResults;
 	return 0;
+}
+
 }

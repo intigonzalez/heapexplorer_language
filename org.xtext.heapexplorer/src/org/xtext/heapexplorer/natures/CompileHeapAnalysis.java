@@ -88,7 +88,7 @@ public class CompileHeapAnalysis extends IncrementalProjectBuilder {
 
 						StringBuilder sBuilder = new StringBuilder();
 						sBuilder.append("include ../core/subdir.mk\n\n");
-						sBuilder.append(String.format("SRCS+=%s.c\n\n",
+						sBuilder.append(String.format("SRCS+=%s.cpp\n\n",
 								analysis));
 						sBuilder.append(String.format(
 								"ANALYSIS_LIB:=lib%s.so\n\n", analysis));

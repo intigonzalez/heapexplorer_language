@@ -59,23 +59,8 @@ class ExtensionExpressionCompilationProvider {
 		// types
 	def dispatch String c_representation(BaseType t) {
 		if (t.name == "bool")	"int"
-		else if (t == HETypeFactory::stringType) "char*"
+		else if (t == HETypeFactory::stringType) "std::string"
 		else t.name
-	}
-	
-	def String c_declare_var(HeapExplorerType t) {
-		switch (t) {
-			ComposedType:if (!HETypeFactory::builtInTypes.exists[it == t]) t.name
-						 else if (t == HETypeFactory::classType)
-						 	"struct LocalClass*"
-						 else "WHAT_TYPE_IS_THIS"
-			CollectionType: "List*" //t.name
-			default: {
-				if (t.name == "bool")	"int"
-				else if (t == HETypeFactory::stringType) "char*"
-				else t.name
-			}
-		}
 	}
 
 	def dispatch String c_representation(StructType s) '''
@@ -87,10 +72,26 @@ class ExtensionExpressionCompilationProvider {
 	
 	def dispatch String c_representation(TableType tt) 
 	//'''typedef «tt.base_type.name» * '''
-	'''typedef List* '''
+	'''typedef std::vector< «tt.base_type.type.c_declare_var» >'''
 	
 	def dispatch String c_representation(Type t) '''
 		«t.definition.c_representation» «t.name»; '''
+	
+	def String c_declare_var(HeapExplorerType t) {
+		switch (t) {
+			ComposedType:if (!HETypeFactory::builtInTypes.exists[it == t]) t.name
+						 else if (t == HETypeFactory::classType)
+						 	"struct LocalClass*"
+						 else if (t == HETypeFactory::objectType)
+						 	'''LocalObject*'''
+						 else "WHAT_TYPE_IS_THIS"
+			CollectionType: '''std::vector< «(t as CollectionType).baseType.c_declare_var» >''' //t.name
+			default: {
+				if (t == HETypeFactory::stringType) "std::string"
+				else t.name
+			}
+		}
+	}
 	
 	def dispatch String compile_to_c(ComponentType c) {
 		var result = ""
@@ -126,7 +127,7 @@ class ExtensionExpressionCompilationProvider {
 		''
 	}
 	def dispatch String compile_to_c(BooleanLiteral e) {
-		val s = '''«if (e.value=='true')"1"else "0"»'''
+		val s = '''«if (e.value=='true')"true"else "false"»'''
 		stack.push(s)
 		''
 	}
@@ -150,12 +151,11 @@ class ExtensionExpressionCompilationProvider {
 	def dispatch String compile_to_c(CollectionLiteral e) {
 		val tmp = allocateTmp()
 		stack.push(tmp)
-		val type = (e.type as CollectionType).baseType
-		'''List* «tmp» = create_list();«FOR sub : e.expressions»
+		'''
+		«e.type.c_declare_var» «tmp»; // this is the list
+		«FOR sub : e.expressions»
 		«sub.compile_to_c»
-		«type.c_declare_var»* «allocateTmp» = («type.c_declare_var»*)malloc(sizeof(«type.c_declare_var»));
-		*«lastAllocatedTmp» = «stack.pop»;
-		add_to_list(«tmp»,«lastAllocatedTmp»);
+		«tmp».push_back(«stack.pop»);
 		«ENDFOR»
 		'''
 	}
@@ -266,10 +266,9 @@ class ExtensionExpressionCompilationProvider {
 		val l_right = stack.pop
 		val l_left = stack.pop
 		val tmp = allocateTmp()
-		val tLeft = e.left.type
 		val s1 = '''
 «««		«IF tLeft == HETypeFactory::stringType»printf("MIERDAAAAAAAAAAAAAAA %s %s\n",«l_left», «l_right»);«ENDIF»
-		«e.type.c_declare_var» «tmp» = «IF tLeft == HETypeFactory::stringType»!strcmp(«l_left», «l_right»)«ELSE»«l_left» «e.op» «l_right»«ENDIF»;
+		«e.type.c_declare_var» «tmp» = «l_left» «e.op» «l_right»;
 		'''
 		stack.push(tmp)
 		s0 + s1
@@ -370,7 +369,7 @@ class ExtensionExpressionCompilationProvider {
 		val tmp = allocateTmp
 		stack.push(tmp)
 		'''
-		«tyTmp.c_declare_var» «tmp» = «source»->«mc.name»«IF isMethod»()«ENDIF»;
+		«tyTmp.c_declare_var» «tmp» = «source».«mc.name»«IF isMethod»()«ENDIF»;
 		'''->tyTmp
 	}
 	def dispatch Pair<String, HeapExplorerType> c_get_Member(ComposedType type, String source, MemberCall mc) {
@@ -399,7 +398,10 @@ class ExtensionExpressionCompilationProvider {
 			val tmpDst = allocateTmp
 			stack.push(tmpDst)
 			s0 + '''
-			List* «tmpDst» = append(«source», «tmpSrc»);
+			
+			«type.c_declare_var » «tmpDst»;// append(«source», «tmpSrc»);
+			«tmpDst».insert(«tmpDst».end(),«source».begin(),«source».end());
+			«tmpDst».insert(«tmpDst».end(),«tmpSrc».begin(),«tmpSrc».end());
 			'''->type
 		}
 		else if (mc.name == 'findfirst') {
@@ -411,44 +413,46 @@ class ExtensionExpressionCompilationProvider {
 			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
 			val rTy = type.methods.findFirst[it.name == mc.name].returnType
 			'''
-			bool «tmp»(void* data, void* user_data) {
-				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+			«rTy.c_declare_var» «tmpR»;
+			auto «tmp» = [&] («type.baseType.c_declare_var»& «lambda.lambdaParams.get(0).name») {
 				«lambda.compile_to_c»
 				return «stack.pop»;
+			};
+			auto «tmpr0» = std::find_if(«source».begin(), «source».end(), «tmp»); //«mc.name»(«source», «tmp», NULL);
+			
+			if («tmpr0» != «source».end()) {
+				//«rTy.c_declare_var» v;
+				//«tmpr0» = &v;
+				//memset(«tmpr0», 0, sizeof(«rTy.c_declare_var»));
+				«tmpR» = *«tmpr0»;
 			}
-			«rTy.c_declare_var»* «tmpr0» = «mc.name»(«source», «tmp», NULL);
-			if («tmpr0» == NULL) {
-				«rTy.c_declare_var» v;
-				«tmpr0» = &v;
-				memset(«tmpr0», 0, sizeof(«rTy.c_declare_var»));
-			}
-			«rTy.c_declare_var» «tmpR» = *«tmpr0»;
 			'''->rTy
 		}
 		else if (mc.name == 'foreach') {
-			val tmp = allocateTmp
 			stack.push("nothing")
 			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
 			'''
-			void «tmp»(void* data, void* user_data) {
-				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
-				«lambda.compile_to_c»
-			}
-			foreach(«source», «tmp», NULL);
+			std::for_each(«source».begin(), «source».end(), 
+						[&] («type.baseType.c_declare_var»& «lambda.lambdaParams.get(0).name») {
+							«lambda.compile_to_c»
+						}
+			);
 			'''->HETypeFactory::voidType
 		} 
 		else if (mc.name == 'filter') {
 			val tmp = allocateTmp
 			val tmpR = allocateTmp
+			val tmpIt = allocateTmp
 			stack.push(tmpR)
 			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
 			'''
-			bool «tmp»(void* data, void* user_data) {
-				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+			auto «tmp» = [&] («type.baseType.c_declare_var»& «lambda.lambdaParams.get(0).name») {
 				«lambda.compile_to_c»
 				return «stack.pop»;
-			}
-			List* «tmpR» = filter(«source», «tmp», NULL);
+			};
+			«type.c_declare_var» «tmpR»(«source».size()); // = filter(«source», «tmp», NULL);
+			auto «tmpIt» = std::copy_if(«source».begin(), «source».end(), «tmpR».begin(), «tmp»);
+			«tmpR».resize(std::distance(«tmpR».begin(),«tmpIt»));
 			'''->type.methods.findFirst[it.name == mc.name].returnType
 		}
 		else if (mc.name == 'forall' || mc.name == 'exists') {
@@ -458,12 +462,11 @@ class ExtensionExpressionCompilationProvider {
 			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
 			val rTy = type.methods.findFirst[it.name == mc.name].returnType
 			'''
-			bool «tmp»(void* data, void* user_data) {
-				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+			auto «tmp» = [&] («type.baseType.c_declare_var»& «lambda.lambdaParams.get(0).name») {
 				«lambda.compile_to_c»
 				return «stack.pop»;
-			}
-			«rTy.c_declare_var» «tmpR» = «mc.name»(«source», «tmp», NULL);
+			};
+			«rTy.c_declare_var» «tmpR» = «IF mc.name == "forall"»std::all_of«ELSE»std::any_of«ENDIF»(«source».begin(), «source».end(), «tmp»);
 			'''->rTy
 		}
 		else if (mc.name == 'map') {
@@ -472,18 +475,16 @@ class ExtensionExpressionCompilationProvider {
 			stack.push(tmpR)
 			val lambda = (mc.parameters.get(0) as Atomic).atomic as LambdaExpression
 			val mappedType = lambda.returnValue.type
+			val returnType = new CollectionType("", mappedType)
 			val rTy = type.methods.findFirst[it.name == mc.name].returnType
-			val tmpFinal = allocateTmp
 			'''
-			void* «tmp»(void* data, void* user_data) {
-				«type.baseType.c_declare_var»* «lambda.lambdaParams.get(0).name» = («type.baseType.c_declare_var»*) data;
+			auto «tmp» = [&] («type.baseType.c_declare_var»& «lambda.lambdaParams.get(0).name») {
 				«lambda.compile_to_c»
-				«mappedType.c_declare_var»* «tmpFinal» = («mappedType.c_declare_var»*)malloc(sizeof(«mappedType.c_declare_var»));
-				*«tmpFinal» = «stack.pop»;
-				return «tmpFinal»;
-			}
-			«rTy.c_declare_var» «tmpR» = «mc.name»(«source», «tmp», NULL);
-			'''->new CollectionType("", mappedType)
+				return «stack.pop»;
+			};
+			«returnType.c_declare_var» «tmpR»(«source».size());
+			std::transform(«source».begin(), «source».end(), «tmpR».begin(), «tmp»);
+			'''->returnType
 		}
 		else throw new UnsupportedOperationException("TODO222: auto-generated method stub")
 	}
